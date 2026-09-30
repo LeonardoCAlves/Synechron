@@ -1,0 +1,84 @@
+{
+  "protocol": "Model Context Protocol",
+  "server": "decision-ledger",
+  "tools": [
+    {
+      "name": "list-decisions",
+      "title": "List architecture decisions",
+      "description": "List recorded architecture decisions, optionally filtered by lifecycle status.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "status": {
+            "description": "Optional lifecycle state filter.",
+            "type": "string",
+            "enum": ["proposed", "accepted", "rejected", "superseded"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get-decision",
+      "title": "Get an architecture decision",
+      "description": "Retrieve a decision record by its UUID.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "Stable unique decision identifier."
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create-decision",
+      "title": "Create an architecture decision",
+      "description": "Record a proposed or finalized architecture decision.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 120,
+            "description": "Short, imperative architecture decision title."
+          },
+          "context": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 4000,
+            "description": "Forces and conditions that motivate this decision."
+          },
+          "decision": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 4000,
+            "description": "The chosen option and its rationale."
+          },
+          "consequences": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 4000,
+            "description": "Positive, negative, and follow-up consequences."
+          },
+          "status": {
+            "description": "Initial lifecycle state. Defaults to proposed when omitted.",
+            "type": "string",
+            "enum": ["proposed", "accepted", "rejected", "superseded"]
+          }
+        },
+        "required": ["title", "context", "decision", "consequences"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

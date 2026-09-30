@@ -1,0 +1,4 @@
+# Replace these sample teams with real organization teams before enforcing ownership.
+* @architecture-team
+.github/ @developer-experience-team
+contracts/ src/contracts.ts @api-owners

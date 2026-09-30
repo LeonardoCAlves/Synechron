@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/decision-ledger/contracts/decision.schema.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "Stable unique decision identifier."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 120,
+      "description": "Short, imperative architecture decision title."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["proposed", "accepted", "rejected", "superseded"],
+      "description": "Lifecycle state of the decision."
+    },
+    "context": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 4000,
+      "description": "Forces and conditions that motivate this decision."
+    },
+    "decision": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 4000,
+      "description": "The chosen option and its rationale."
+    },
+    "consequences": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 4000,
+      "description": "Positive, negative, and follow-up consequences."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+      "description": "UTC creation timestamp in ISO 8601 format."
+    }
+  },
+  "required": ["id", "title", "status", "context", "decision", "consequences", "createdAt"],
+  "additionalProperties": false
+}

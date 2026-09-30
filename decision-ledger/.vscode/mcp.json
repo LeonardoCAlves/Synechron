@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "decision-ledger": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["compose", "run", "--rm", "-T", "mcp-server"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}
