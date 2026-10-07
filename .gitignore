@@ -172,6 +172,11 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# Go build and test artifacts
+/order-platform/bin/
+/order-platform/coverage.out
+/order-platform/*.test
+
 # Pyre type checker
 .pyre/
 

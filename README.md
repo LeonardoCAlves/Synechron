@@ -6,6 +6,16 @@ Each project lives in its own directory and includes project-specific documentat
 
 ## Projects
 
+### Order Platform
+
+A Go microservices reference for a product catalog and order workflow. It is being built to demonstrate service-owned data, versioned domain events, Kafka-based asynchronous integration, idempotency, and production-grade testing practices.
+
+- [Project README and implementation status](order-platform/README.md)
+- [Architecture overview](order-platform/docs/architecture.md)
+- [Engineering practices](order-platform/docs/engineering-practices.md)
+- [Testing strategy](order-platform/docs/testing.md)
+- [Security notes and threat model](order-platform/docs/security.md)
+
 ### Decision Ledger
 
 A contract-first architecture decision service that stores Architecture Decision Records (ADRs) and exposes its use cases through the Model Context Protocol (MCP). It demonstrates executable contracts, layered architecture, PostgreSQL persistence, automated testing, CI, and security trade-offs.
