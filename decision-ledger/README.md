@@ -70,4 +70,4 @@ docs/                Architecture, engineering practices, ADRs, and test strateg
 
 ## Scope and Limitations
 
-This project is a teaching reference, not a production service. It has durable local persistence but no user authentication, business authorization, tenant isolation, approval workflow, rate limiting, backup policy, or audit retention. Do not expose it to untrusted clients or store sensitive decision records in it.
+This project is complete as a teaching reference, not as a production service. Its tests cover the MCP protocol adapter and PostgreSQL persistence across process exit, concurrent writes, and surfaced database failures. It has no user authentication, business authorization, tenant isolation, approval workflow, rate limiting, backup policy, or audit retention. Do not expose it to untrusted clients or store sensitive decision records in it. See the [production-adaptation criteria](docs/security.md#completion-criteria-for-a-production-adaptation) before using it with organizational records.

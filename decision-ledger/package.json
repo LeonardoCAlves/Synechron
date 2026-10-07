@@ -12,7 +12,7 @@
     "start": "node dist/index.js",
     "mcp": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
-    "test": "vitest run tests/contracts.test.ts tests/decision-service.test.ts",
+    "test": "vitest run tests/contracts.test.ts tests/decision-service.test.ts tests/mcp-server.test.ts",
     "test:integration": "vitest run tests/postgres-decision-repository.integration.test.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
