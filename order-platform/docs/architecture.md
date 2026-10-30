@@ -42,9 +42,9 @@ The catalog publishes product-created and product-updated events. The order serv
 
 ## Delivery milestones
 
-1. **Foundation (current):** domain invariants, event envelope, architecture, and engineering standards.
-2. **Service boundaries:** versioned HTTP contracts and application use cases, with in-memory ports and boundary tests.
-3. **Durability:** service-owned PostgreSQL schemas, migrations, transactional outbox, and integration tests.
+1. **Foundation (complete):** domain invariants, event envelope, architecture, and engineering standards.
+2. **Service boundaries (complete):** versioned HTTP contracts and application use cases, with in-memory ports and boundary tests.
+3. **Durability (implemented):** service-owned PostgreSQL schemas, migrations, transactional outboxes, and opt-in integration tests. Run the tests against dedicated PostgreSQL databases to validate the adapters.
 4. **Event flow:** Kafka producer/consumer adapters, inbox deduplication, catalog projection, retry and replay behavior.
 5. **Local operations:** Compose environment, health/readiness, structured logs, metrics, and end-to-end smoke tests.
 6. **Release readiness:** CI, dependency/security review, compatibility checks, operational runbooks, and an explicit production-readiness review.

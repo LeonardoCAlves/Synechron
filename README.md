@@ -12,6 +12,8 @@ A Go microservices reference for a product catalog and order workflow. It is bei
 
 - [Project README and implementation status](order-platform/README.md)
 - [Architecture overview](order-platform/docs/architecture.md)
+- [Versioned HTTP service boundaries](order-platform/docs/service-boundaries.md)
+- [PostgreSQL persistence and outbox](order-platform/docs/persistence.md)
 - [Engineering practices](order-platform/docs/engineering-practices.md)
 - [Testing strategy](order-platform/docs/testing.md)
 - [Security notes and threat model](order-platform/docs/security.md)

@@ -21,7 +21,17 @@ go test ./...
 go test -race ./...
 ```
 
-PostgreSQL/Kafka integration tests must use disposable local infrastructure and never truncate or mutate a shared environment. Every test that creates infrastructure must clean it up even when assertions fail.
+The service-boundaries milestone includes `httptest` coverage for JSON validation, request-size limits, HTTP status/error contracts, idempotency replay and conflicts, product snapshots, and orders waiting for a catalog projection.
+
+PostgreSQL/Kafka integration tests must use disposable local infrastructure and never truncate or mutate a shared environment. Every test that creates infrastructure must clean it up even when assertions fail. PostgreSQL adapter tests use dedicated connection-string environment variables, create a unique schema per test, and drop only that schema during cleanup.
+
+```powershell
+$env:ORDER_PLATFORM_CATALOG_TEST_DATABASE_URL = "postgres://user:password@localhost:5432/catalog_test?sslmode=disable"
+$env:ORDER_PLATFORM_ORDERS_TEST_DATABASE_URL = "postgres://user:password@localhost:5432/orders_test?sslmode=disable"
+go test ./internal/postgres
+```
+
+The database URLs above must point to disposable test databases where the test user can create and drop schemas. If either variable is unset, its integration test is skipped.
 
 ## Distributed behavior to prove
 

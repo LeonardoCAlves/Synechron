@@ -4,7 +4,7 @@ Order Platform is a Go training project for advanced software engineering. It wi
 
 ## Project status
 
-This is the foundation milestone. It establishes the service boundaries, initial domain invariants, event envelope, and engineering workflow. The HTTP services, PostgreSQL adapters, Kafka transport, local Compose environment, and CI pipeline are planned follow-up milestones; this foundation is not yet an end-to-end runnable platform.
+The project has completed its foundation, service-boundaries, and PostgreSQL durability milestones. Catalog and order services now persist to separate PostgreSQL databases, and each write commits its state and versioned outbox event atomically. Kafka transport, a local Compose environment, and CI remain follow-up milestones; events are recorded but are not yet published.
 
 ## Architecture direction
 
@@ -20,16 +20,21 @@ See the [architecture](docs/architecture.md), [engineering practices](docs/engin
 ## Requirements and checks
 
 - Go 1.27 or later
-- PostgreSQL and Kafka will be required for the local integration environment in a later milestone.
+- PostgreSQL is required to run either service. Kafka will be required when event transport is implemented.
 
-Run the implemented foundation checks from this directory:
+Run the implemented checks from this directory:
 
 ```powershell
-gofmt -w .
+Get-ChildItem -Recurse -Filter *.go | ForEach-Object { gofmt -w $_.FullName }
 go vet ./...
 go test ./...
 go build ./...
 ```
+
+Run either service with `go run ./cmd/catalog-service` (127.0.0.1:8081) or `go run ./cmd/order-service` (127.0.0.1:8082). Set `HTTP_ADDR` and `DATABASE_URL` to configure the listen address and service-owned PostgreSQL database. The order service starts with an empty catalog projection; order placement becomes available after a projection is populated by the Kafka consumer in a later milestone.
+
+The current HTTP routes and request/response semantics are described in [service boundaries](docs/service-boundaries.md).
+Database ownership, migrations, outbox records, and integration-test setup are described in [persistence](docs/persistence.md).
 
 ## Scope
 

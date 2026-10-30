@@ -38,7 +38,7 @@ func TestNewOrderRejectsInvalidAndAmbiguousItems(t *testing.T) {
 		{name: "negative price", items: []LineItem{{ProductID: "p-1", ProductName: "Keyboard", Quantity: 1, UnitPriceCents: -1, Currency: "CAD"}}},
 		{name: "mixed currencies", items: []LineItem{valid, {ProductID: "p-2", ProductName: "Mouse", Quantity: 1, Currency: "USD"}}},
 		{name: "duplicate product", items: []LineItem{valid, valid}},
-		{name: "quantity overflow", items: []LineItem{{ProductID: "p-1", ProductName: "Keyboard", Quantity: maxQuantity + 1, Currency: "CAD"}}},
+		{name: "quantity overflow", items: []LineItem{{ProductID: "p-1", ProductName: "Keyboard", Quantity: MaxQuantity + 1, Currency: "CAD"}}},
 		{name: "line total overflow", items: []LineItem{{ProductID: "p-1", ProductName: "Keyboard", Quantity: 2, UnitPriceCents: math.MaxInt64, Currency: "CAD"}}},
 		{name: "aggregate total overflow", items: []LineItem{
 			{ProductID: "p-1", ProductName: "Keyboard", Quantity: 1, UnitPriceCents: math.MaxInt64, Currency: "CAD"},
