@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -34,8 +35,16 @@ func decodeJSON(w http.ResponseWriter, request *http.Request, destination any) e
 		return errUnsupportedMedia
 	}
 
-	request.Body = http.MaxBytesReader(w, request.Body, maxRequestBodyBytes)
-	decoder := json.NewDecoder(request.Body)
+	body, err := io.ReadAll(http.MaxBytesReader(w, request.Body, maxRequestBodyBytes))
+	if err != nil {
+		var maxBytesError *http.MaxBytesError
+		if errors.As(err, &maxBytesError) {
+			return errPayloadTooLarge
+		}
+		return errInvalidRequest
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(destination); err != nil {
 		var maxBytesError *http.MaxBytesError

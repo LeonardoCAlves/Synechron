@@ -16,8 +16,11 @@ type OrderService interface {
 	GetOrder(context.Context, string) (orders.Order, error)
 }
 
-func NewOrderHandler(service OrderService) http.Handler {
+func NewOrderHandler(service OrderService, readiness ...ReadinessCheck) http.Handler {
 	handler := &orderHandler{service: service}
+	if len(readiness) > 0 {
+		handler.readiness = readiness[0]
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch {
 		case request.URL.Path == "/healthz":
@@ -26,6 +29,12 @@ func NewOrderHandler(service OrderService) http.Handler {
 				return
 			}
 			writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		case request.URL.Path == "/readyz":
+			if request.Method != http.MethodGet {
+				methodNotAllowed(w, http.MethodGet)
+				return
+			}
+			handler.ready(w, request)
 		case request.URL.Path == "/api/v1/orders":
 			if request.Method != http.MethodPost {
 				methodNotAllowed(w, http.MethodPost)
@@ -50,7 +59,19 @@ func NewOrderHandler(service OrderService) http.Handler {
 }
 
 type orderHandler struct {
-	service OrderService
+	service   OrderService
+	readiness ReadinessCheck
+}
+
+func (handler *orderHandler) ready(w http.ResponseWriter, request *http.Request) {
+	if handler.readiness != nil {
+		if err := handler.readiness(request.Context()); err != nil {
+			log.Printf("order readiness check failed: %v", err)
+			writeAPIError(w, http.StatusServiceUnavailable, "not_ready", "service dependencies are unavailable")
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
 func (handler *orderHandler) create(w http.ResponseWriter, request *http.Request) {

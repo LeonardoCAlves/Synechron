@@ -16,7 +16,6 @@ import (
 	"github.com/LeonardoCAlves/synechron/order-platform/internal/events"
 	"github.com/LeonardoCAlves/synechron/order-platform/internal/identity"
 	"github.com/LeonardoCAlves/synechron/order-platform/internal/orderapp"
-	"github.com/LeonardoCAlves/synechron/order-platform/internal/orders"
 )
 
 func TestCatalogPostgresPersistsIdempotencyAndTransactionalOutbox(t *testing.T) {
@@ -56,7 +55,9 @@ func TestCatalogPostgresPersistsIdempotencyAndTransactionalOutbox(t *testing.T) 
 		t.Fatalf("unexpected outbox event: type=%q envelope=%#v", eventType, envelope)
 	}
 
-	if _, err := db.ExecContext(ctx, `ALTER TABLE outbox_events ADD CONSTRAINT reject_catalog_test_event CHECK (event_type <> 'catalog.product.created.v1')`); err != nil {
+	if _, err := db.ExecContext(ctx, `
+		ALTER TABLE outbox_events ADD CONSTRAINT reject_catalog_test_event
+		CHECK (event_type <> 'catalog.product.created.v1' OR payload #>> '{data,name}' <> 'Mouse')`); err != nil {
 		t.Fatalf("install outbox failure constraint: %v", err)
 	}
 	_, err = service.CreateProduct(ctx, catalogapp.CreateProductInput{
@@ -124,7 +125,9 @@ func TestOrderPostgresPersistsSnapshotsIdempotencyAndTransactionalOutbox(t *test
 		t.Fatalf("outbox event type/count = %q/%d, want order.created.v1/1", eventType, eventCount)
 	}
 
-	if _, err := db.ExecContext(ctx, `ALTER TABLE outbox_events ADD CONSTRAINT reject_order_test_event CHECK (event_type <> 'order.created.v1')`); err != nil {
+	if _, err := db.ExecContext(ctx, `
+		ALTER TABLE outbox_events ADD CONSTRAINT reject_order_test_event
+		CHECK (event_type <> 'order.created.v1' OR payload #>> '{data,items,0,quantity}' <> '3')`); err != nil {
 		t.Fatalf("install outbox failure constraint: %v", err)
 	}
 	_, err = service.CreateOrder(ctx, orderapp.CreateOrderInput{
@@ -140,9 +143,178 @@ func TestOrderPostgresPersistsSnapshotsIdempotencyAndTransactionalOutbox(t *test
 	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM idempotency_requests WHERE idempotency_key = 'orders-test-rollback'`).Scan(&idempotencyRecords); err != nil {
 		t.Fatalf("count idempotency records after rollback: %v", err)
 	}
-	if ordersCount != 1 || idempotencyRecords != 1 {
+	if ordersCount != 1 || idempotencyRecords != 0 {
 		t.Fatalf("failed outbox transaction persisted orders=%d idempotency=%d", ordersCount, idempotencyRecords)
 	}
+}
+
+func TestOrderPostgresInboxDeduplicatesAndIgnoresOutOfOrderEvents(t *testing.T) {
+	db := openIsolatedDatabase(t, "ORDER_PLATFORM_ORDERS_TEST_DATABASE_URL", MigrateOrders)
+	store := NewOrderStore(db)
+	ctx := context.Background()
+
+	newEvent := func(version int64, name string, occurredAt time.Time) events.Envelope {
+		t.Helper()
+		product, err := catalog.NewProduct("projected-product-versioned", name, "", version*100, "CAD", occurredAt)
+		if err != nil {
+			t.Fatalf("NewProduct() error = %v", err)
+		}
+		event, err := events.New("catalog.product.updated.v1", product.ID, 1, occurredAt, product)
+		if err != nil {
+			t.Fatalf("events.New() error = %v", err)
+		}
+		event.AggregateVersion = version
+		return event
+	}
+
+	newer := newEvent(2, "New name", time.Now().UTC())
+	if applied, err := store.ApplyCatalogEvent(ctx, newer); err != nil || !applied {
+		t.Fatalf("ApplyCatalogEvent(newer) = %v, %v; want applied", applied, err)
+	}
+	if applied, err := store.ApplyCatalogEvent(ctx, newer); err != nil || applied {
+		t.Fatalf("ApplyCatalogEvent(duplicate) = %v, %v; want duplicate", applied, err)
+	}
+	older := newEvent(1, "Old name", newer.OccurredAt.Add(-time.Minute))
+	if applied, err := store.ApplyCatalogEvent(ctx, older); err != nil || !applied {
+		t.Fatalf("ApplyCatalogEvent(older) = %v, %v; want inboxed event", applied, err)
+	}
+
+	product, err := store.FindCatalogProduct(ctx, newer.AggregateID)
+	if err != nil {
+		t.Fatalf("FindCatalogProduct() error = %v", err)
+	}
+	if product.Name != "New name" || product.PriceCents != 200 {
+		t.Fatalf("stale event overwrote projection: %#v", product)
+	}
+	var inboxCount int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM inbox_events`).Scan(&inboxCount); err != nil {
+		t.Fatalf("count inbox events: %v", err)
+	}
+	if inboxCount != 2 {
+		t.Fatalf("inbox event count = %d, want 2 distinct events", inboxCount)
+	}
+}
+
+func TestOutboxRetriesAndDeadLettersAfterBoundedAttempts(t *testing.T) {
+	db := openIsolatedDatabase(t, "ORDER_PLATFORM_CATALOG_TEST_DATABASE_URL", MigrateCatalog)
+	ctx := context.Background()
+	store := NewCatalogStore(db)
+	service := catalogapp.NewService(store)
+	product, err := service.CreateProduct(ctx, catalogapp.CreateProductInput{
+		Name: "Retry product", PriceCents: 500, Currency: "CAD",
+	}, "outbox-retry-test")
+	if err != nil {
+		t.Fatalf("CreateProduct() error = %v", err)
+	}
+
+	outbox := NewOutboxStore(db)
+	messages, err := outbox.ClaimPending(ctx, 10, time.Minute)
+	if err != nil || len(messages) != 1 {
+		t.Fatalf("ClaimPending() = %d messages, %v; want one message", len(messages), err)
+	}
+	if messages[0].AggregateID != product.ID || messages[0].Attempts != 0 {
+		t.Fatalf("unexpected claimed event: %#v", messages[0])
+	}
+	deadLettered, err := outbox.RecordFailure(ctx, messages[0].ID, "temporary", time.Second, 2)
+	if err != nil || deadLettered {
+		t.Fatalf("first RecordFailure() = %v, %v; want retryable event", deadLettered, err)
+	}
+
+	if _, err := db.ExecContext(ctx, `UPDATE outbox_events SET next_attempt_at = now() WHERE id = $1`, messages[0].ID); err != nil {
+		t.Fatalf("make retry available: %v", err)
+	}
+	messages, err = outbox.ClaimPending(ctx, 10, time.Minute)
+	if err != nil || len(messages) != 1 || messages[0].Attempts != 1 {
+		t.Fatalf("ClaimPending(retry) = %#v, %v; want one event after one attempt", messages, err)
+	}
+	deadLettered, err = outbox.RecordFailure(ctx, messages[0].ID, "permanent", 0, 2)
+	if err != nil || !deadLettered {
+		t.Fatalf("second RecordFailure() = %v, %v; want dead-lettered event", deadLettered, err)
+	}
+	messages, err = outbox.ClaimPending(ctx, 10, time.Minute)
+	if err != nil || len(messages) != 0 {
+		t.Fatalf("ClaimPending(dead-lettered) = %#v, %v; want no events", messages, err)
+	}
+}
+
+func TestOutboxPreservesAggregateVersionOrder(t *testing.T) {
+	db := openIsolatedDatabase(t, "ORDER_PLATFORM_CATALOG_TEST_DATABASE_URL", MigrateCatalog)
+	ctx := context.Background()
+	store := NewCatalogStore(db)
+	product, err := catalogapp.NewService(store).CreateProduct(ctx, catalogapp.CreateProductInput{
+		Name: "Versioned product", PriceCents: 500, Currency: "CAD",
+	}, "outbox-order-test")
+	if err != nil {
+		t.Fatalf("CreateProduct() error = %v", err)
+	}
+
+	var firstEventID string
+	if err := db.QueryRowContext(ctx, `
+		SELECT id FROM outbox_events WHERE aggregate_id = $1 AND aggregate_version = 1`,
+		product.ID).Scan(&firstEventID); err != nil {
+		t.Fatalf("find initial outbox event: %v", err)
+	}
+	if err := storeOutboxVersion(ctx, db, product, 2); err != nil {
+		t.Fatalf("store aggregate version 2: %v", err)
+	}
+	if err := storeOutboxVersion(ctx, db, product, 3); err != nil {
+		t.Fatalf("store aggregate version 3: %v", err)
+	}
+
+	outbox := NewOutboxStore(db)
+	if err := outbox.MarkPublished(ctx, firstEventID); err != nil {
+		t.Fatalf("mark initial event published: %v", err)
+	}
+	messages, err := outbox.ClaimPending(ctx, 10, time.Minute)
+	if err != nil || len(messages) != 1 || messages[0].AggregateVersion != 2 {
+		t.Fatalf("ClaimPending() = %#v, %v; want only aggregate version 2", messages, err)
+	}
+	deadLettered, err := outbox.RecordFailure(ctx, messages[0].ID, "requires recovery", 0, 1)
+	if err != nil || !deadLettered {
+		t.Fatalf("dead-letter aggregate version 2 = %v, %v; want dead-lettered", deadLettered, err)
+	}
+	messages, err = outbox.ClaimPending(ctx, 10, time.Minute)
+	if err != nil || len(messages) != 0 {
+		t.Fatalf("ClaimPending() after dead-letter = %#v, %v; want later versions blocked", messages, err)
+	}
+
+	if _, err := db.ExecContext(ctx, `
+		UPDATE outbox_events
+		SET dead_lettered_at = NULL, attempts = 0, next_attempt_at = now()
+		WHERE aggregate_id = $1 AND aggregate_version = 2`, product.ID); err != nil {
+		t.Fatalf("requeue aggregate version 2: %v", err)
+	}
+	messages, err = outbox.ClaimPending(ctx, 10, time.Minute)
+	if err != nil || len(messages) != 1 || messages[0].AggregateVersion != 2 {
+		t.Fatalf("ClaimPending() after recovery = %#v, %v; want aggregate version 2", messages, err)
+	}
+	if err := outbox.MarkPublished(ctx, messages[0].ID); err != nil {
+		t.Fatalf("mark aggregate version 2 published: %v", err)
+	}
+	messages, err = outbox.ClaimPending(ctx, 10, time.Minute)
+	if err != nil || len(messages) != 1 || messages[0].AggregateVersion != 3 {
+		t.Fatalf("ClaimPending() after version 2 = %#v, %v; want aggregate version 3", messages, err)
+	}
+}
+
+func storeOutboxVersion(ctx context.Context, db *sql.DB, product catalog.Product, version int64) error {
+	event, err := events.New("catalog.product.updated.v1", product.ID, 1, time.Now().UTC(), product)
+	if err != nil {
+		return fmt.Errorf("create aggregate version %d event: %w", version, err)
+	}
+	event.AggregateVersion = version
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin aggregate version %d outbox transaction: %w", version, err)
+	}
+	defer tx.Rollback()
+	if err := insertOutboxEvent(ctx, tx, event); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit aggregate version %d outbox event: %w", version, err)
+	}
+	return nil
 }
 
 func openIsolatedDatabase(t *testing.T, envName string, migrate func(context.Context, *sql.DB) error) *sql.DB {

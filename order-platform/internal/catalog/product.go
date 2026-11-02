@@ -11,13 +11,13 @@ import (
 var ErrInvalidProduct = errors.New("invalid product")
 
 type Product struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	PriceCents  int64     `json:"priceCents"`
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	PriceCents  int64          `json:"priceCents"`
 	Currency    money.Currency `json:"currency"`
-	Active      bool      `json:"active"`
-	CreatedAt   time.Time `json:"createdAt"`
+	Active      bool           `json:"active"`
+	CreatedAt   time.Time      `json:"createdAt"`
 }
 
 func NewProduct(id, name, description string, priceCents int64, currency string, now time.Time) (Product, error) {

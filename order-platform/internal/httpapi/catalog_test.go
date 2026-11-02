@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,6 +11,7 @@ import (
 
 	"github.com/LeonardoCAlves/synechron/order-platform/internal/catalog"
 	"github.com/LeonardoCAlves/synechron/order-platform/internal/catalogapp"
+	"github.com/LeonardoCAlves/synechron/order-platform/internal/eventflow"
 	"github.com/LeonardoCAlves/synechron/order-platform/internal/memory"
 )
 
@@ -119,6 +122,36 @@ func TestCatalogHTTPRejectsOversizedRequest(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusRequestEntityTooLarge || !strings.Contains(response.Body.String(), `"payload_too_large"`) {
 		t.Fatalf("status/body = %d %s, want payload too large", response.Code, response.Body)
+	}
+}
+
+func TestCatalogReadinessIsSeparateFromLiveness(t *testing.T) {
+	handler := NewCatalogHandler(
+		catalogapp.NewService(memory.NewStore()),
+		func(context.Context) error { return errors.New("database unavailable") },
+	)
+	ready := httptest.NewRecorder()
+	handler.ServeHTTP(ready, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	if ready.Code != http.StatusServiceUnavailable || !strings.Contains(ready.Body.String(), `"not_ready"`) {
+		t.Fatalf("readiness status/body = %d %s, want dependency failure", ready.Code, ready.Body)
+	}
+
+	live := httptest.NewRecorder()
+	handler.ServeHTTP(live, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if live.Code != http.StatusOK {
+		t.Fatalf("liveness status = %d, want %d", live.Code, http.StatusOK)
+	}
+}
+
+func TestMetricsEndpointExposesPrometheusContentType(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", &eventflow.Metrics{})
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+
+	if response.Code != http.StatusOK || !strings.Contains(response.Header().Get("Content-Type"), "text/plain") ||
+		!strings.Contains(response.Body.String(), "order_platform_outbox_oldest_pending_seconds") {
+		t.Fatalf("metrics response = %d %#v %s", response.Code, response.Header(), response.Body)
 	}
 }
 

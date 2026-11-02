@@ -16,6 +16,8 @@ type CatalogService interface {
 	GetProduct(context.Context, string) (catalog.Product, error)
 }
 
+type ReadinessCheck func(context.Context) error
+
 type createProductRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -23,8 +25,11 @@ type createProductRequest struct {
 	Currency    string `json:"currency"`
 }
 
-func NewCatalogHandler(service CatalogService) http.Handler {
+func NewCatalogHandler(service CatalogService, readiness ...ReadinessCheck) http.Handler {
 	handler := &catalogHandler{service: service}
+	if len(readiness) > 0 {
+		handler.readiness = readiness[0]
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch {
 		case request.URL.Path == "/healthz":
@@ -33,6 +38,12 @@ func NewCatalogHandler(service CatalogService) http.Handler {
 				return
 			}
 			writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		case request.URL.Path == "/readyz":
+			if request.Method != http.MethodGet {
+				methodNotAllowed(w, http.MethodGet)
+				return
+			}
+			handler.ready(w, request)
 		case request.URL.Path == "/api/v1/products":
 			if request.Method != http.MethodPost {
 				methodNotAllowed(w, http.MethodPost)
@@ -57,7 +68,19 @@ func NewCatalogHandler(service CatalogService) http.Handler {
 }
 
 type catalogHandler struct {
-	service CatalogService
+	service   CatalogService
+	readiness ReadinessCheck
+}
+
+func (handler *catalogHandler) ready(w http.ResponseWriter, request *http.Request) {
+	if handler.readiness != nil {
+		if err := handler.readiness(request.Context()); err != nil {
+			log.Printf("catalog readiness check failed: %v", err)
+			writeAPIError(w, http.StatusServiceUnavailable, "not_ready", "service dependencies are unavailable")
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
 func (handler *catalogHandler) create(w http.ResponseWriter, request *http.Request) {

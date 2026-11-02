@@ -18,7 +18,7 @@ Client
                              Kafka --------------------+
 ```
 
-The catalog publishes product-created and product-updated events. The order service consumes them into a local catalog projection and uses that projection when accepting orders. Orders capture a product name and unit price snapshot so historical records remain stable when the catalog changes.
+The catalog currently publishes product-created events; the order consumer validates versioned catalog lifecycle envelopes and applies product snapshots to its local projection. The order service uses that projection when accepting orders. Orders capture a product name and unit price snapshot so historical records remain stable when the catalog changes.
 
 ## Boundaries and invariants
 
@@ -45,8 +45,8 @@ The catalog publishes product-created and product-updated events. The order serv
 1. **Foundation (complete):** domain invariants, event envelope, architecture, and engineering standards.
 2. **Service boundaries (complete):** versioned HTTP contracts and application use cases, with in-memory ports and boundary tests.
 3. **Durability (implemented):** service-owned PostgreSQL schemas, migrations, transactional outboxes, and opt-in integration tests. Run the tests against dedicated PostgreSQL databases to validate the adapters.
-4. **Event flow:** Kafka producer/consumer adapters, inbox deduplication, catalog projection, retry and replay behavior.
-5. **Local operations:** Compose environment, health/readiness, structured logs, metrics, and end-to-end smoke tests.
-6. **Release readiness:** CI, dependency/security review, compatibility checks, operational runbooks, and an explicit production-readiness review.
+4. **Event flow (implemented):** Kafka producer/consumer adapters, inbox deduplication, catalog projection, bounded retry, dead-letter routing, and projection ordering tests.
+5. **Local operations (implemented):** Compose environment, readiness/liveness, metrics, bounded logs, and an end-to-end smoke test.
+6. **Release readiness (CI and checklist implemented):** CI, vulnerability scanning, Compose integration coverage, and an operations/release checklist. Production approval, deployment security configuration, and disaster-recovery validation remain environment-specific.
 
 See [ADR 0001](adr/0001-service-boundaries-and-kafka.md) for the initial decision and trade-offs.

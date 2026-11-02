@@ -8,16 +8,16 @@ The service database role needs schema-creation privileges for the initial migra
 
 - The catalog database owns `catalog_products`, catalog `idempotency_requests`, and `outbox_events`.
 - The order database owns `orders`, `order_lines`, order `idempotency_requests`, `catalog_product_projection`, and `outbox_events`.
-- Neither service reads or writes the other service's tables. The order projection is owned by the order service and will be populated by the Kafka consumer in the event-flow milestone.
+- Neither service reads or writes the other service's tables. The order projection is owned by the order service and populated by the Kafka consumer.
 - Order lines store immutable product name, unit price, and currency snapshots. Catalog edits therefore do not change existing orders.
 
-Each database has its own `schema_migrations` history. Migration version 1 creates the service tables and pending-event index. Migrations use a PostgreSQL advisory transaction lock and commit as one unit; the migration runner is safe to invoke at each process startup.
+Each database has its own `schema_migrations` history. Migration version 1 creates the service tables and pending-event index. Migration version 2 adds outbox leases/dead-letter state and the order inbox plus aggregate-version projection fields. Migrations use a PostgreSQL advisory transaction lock and commit as one unit; the migration runner is safe to invoke at each process startup.
 
 ## Transactional outbox
 
-Creating a product or an order commits the aggregate, idempotency record, and versioned event envelope in the same PostgreSQL transaction. If any insert fails, all writes roll back. The event is stored as JSONB with its ID, type, aggregate ID, schema version, and occurrence time, together with pending-delivery metadata.
+Creating a product or an order commits the aggregate, idempotency record, and versioned event envelope in the same PostgreSQL transaction. If any insert fails, all writes roll back. The event is stored as JSONB with its ID, type, aggregate ID, schema version, aggregate version, and occurrence time, together with pending-delivery metadata.
 
-The outbox guarantees the event is not lost between the database commit and eventual publication. It does not publish to Kafka yet; publisher retries, marking delivery, and operational handling belong to the event-flow milestone. Until then, outbox records remain pending.
+The outbox guarantees the event is not lost between the database commit and eventual publication. The publisher claims events with leases, retries transient failures with bounded exponential backoff and jitter, and marks events dead-lettered after a fixed attempt limit. Successful Kafka delivery followed by a process crash before the published marker may cause duplicates.
 
 ## PostgreSQL integration tests
 

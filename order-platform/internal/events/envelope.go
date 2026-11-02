@@ -12,12 +12,13 @@ import (
 var ErrInvalidEnvelope = errors.New("invalid event envelope")
 
 type Envelope struct {
-	ID          string          `json:"id"`
-	Type        string          `json:"type"`
-	Version     int             `json:"version"`
-	AggregateID string          `json:"aggregateId"`
-	OccurredAt  time.Time       `json:"occurredAt"`
-	Data        json.RawMessage `json:"data"`
+	ID               string          `json:"id"`
+	Type             string          `json:"type"`
+	Version          int             `json:"version"`
+	AggregateID      string          `json:"aggregateId"`
+	AggregateVersion int64           `json:"aggregateVersion"`
+	OccurredAt       time.Time       `json:"occurredAt"`
+	Data             json.RawMessage `json:"data"`
 }
 
 func New(eventType, aggregateID string, version int, occurredAt time.Time, data any) (Envelope, error) {
@@ -31,12 +32,13 @@ func New(eventType, aggregateID string, version int, occurredAt time.Time, data 
 	}
 
 	envelope := Envelope{
-		ID:          id,
-		Type:        eventType,
-		Version:     version,
-		AggregateID: aggregateID,
-		OccurredAt:  occurredAt.UTC(),
-		Data:        payload,
+		ID:               id,
+		Type:             eventType,
+		Version:          version,
+		AggregateID:      aggregateID,
+		AggregateVersion: 1,
+		OccurredAt:       occurredAt.UTC(),
+		Data:             payload,
 	}
 	if err := envelope.Validate(); err != nil {
 		return Envelope{}, err
@@ -46,7 +48,7 @@ func New(eventType, aggregateID string, version int, occurredAt time.Time, data 
 
 func (envelope Envelope) Validate() error {
 	if strings.TrimSpace(envelope.ID) == "" || strings.TrimSpace(envelope.Type) == "" ||
-		strings.TrimSpace(envelope.AggregateID) == "" || envelope.Version < 1 ||
+		strings.TrimSpace(envelope.AggregateID) == "" || envelope.Version < 1 || envelope.AggregateVersion < 1 ||
 		envelope.OccurredAt.IsZero() || len(envelope.Data) == 0 || !json.Valid(envelope.Data) {
 		return ErrInvalidEnvelope
 	}

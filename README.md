@@ -8,12 +8,14 @@ Each project lives in its own directory and includes project-specific documentat
 
 ### Order Platform
 
-A Go microservices reference for a product catalog and order workflow. It is being built to demonstrate service-owned data, versioned domain events, Kafka-based asynchronous integration, idempotency, and production-grade testing practices.
+A Go microservices reference for a product catalog and order workflow. Its educational implementation demonstrates service-owned data, versioned domain events, Kafka-based asynchronous integration, idempotency, and production-grade testing practices. Production deployment still requires environment-specific security and operational controls.
 
 - [Project README and implementation status](order-platform/README.md)
 - [Architecture overview](order-platform/docs/architecture.md)
 - [Versioned HTTP service boundaries](order-platform/docs/service-boundaries.md)
 - [PostgreSQL persistence and outbox](order-platform/docs/persistence.md)
+- [Kafka event flow](order-platform/docs/event-flow.md)
+- [Local operations and release checklist](order-platform/docs/operations.md)
 - [Engineering practices](order-platform/docs/engineering-practices.md)
 - [Testing strategy](order-platform/docs/testing.md)
 - [Security notes and threat model](order-platform/docs/security.md)

@@ -23,20 +23,20 @@ const (
 )
 
 type LineItem struct {
-	ProductID      string        `json:"productId"`
-	ProductName    string        `json:"productName"`
-	Quantity       int64         `json:"quantity"`
-	UnitPriceCents int64         `json:"unitPriceCents"`
+	ProductID      string         `json:"productId"`
+	ProductName    string         `json:"productName"`
+	Quantity       int64          `json:"quantity"`
+	UnitPriceCents int64          `json:"unitPriceCents"`
 	Currency       money.Currency `json:"currency"`
 }
 
 type Order struct {
-	ID         string        `json:"id"`
-	Items      []LineItem    `json:"items"`
-	TotalCents int64         `json:"totalCents"`
+	ID         string         `json:"id"`
+	Items      []LineItem     `json:"items"`
+	TotalCents int64          `json:"totalCents"`
 	Currency   money.Currency `json:"currency"`
-	Status     string        `json:"status"`
-	CreatedAt  time.Time     `json:"createdAt"`
+	Status     string         `json:"status"`
+	CreatedAt  time.Time      `json:"createdAt"`
 }
 
 func NewOrder(id string, items []LineItem, now time.Time) (Order, error) {

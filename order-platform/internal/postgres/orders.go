@@ -119,7 +119,12 @@ func (store *OrderStore) CreateOrder(ctx context.Context, order orders.Order, ke
 }
 
 func newOrderCreatedEvent(order orders.Order) (events.Envelope, error) {
-	return events.New("order.created.v1", order.ID, 1, order.CreatedAt, order)
+	event, err := events.New("order.created.v1", order.ID, 1, order.CreatedAt, order)
+	if err != nil {
+		return events.Envelope{}, err
+	}
+	event.AggregateVersion = 1
+	return event, nil
 }
 
 func (store *OrderStore) FindCatalogProduct(ctx context.Context, id string) (catalog.Product, error) {
@@ -141,14 +146,16 @@ func (store *OrderStore) FindCatalogProduct(ctx context.Context, id string) (cat
 
 func (store *OrderStore) PutCatalogProduct(ctx context.Context, product catalog.Product) error {
 	_, err := store.db.ExecContext(ctx, `
-		INSERT INTO catalog_product_projection(id, name, price_cents, currency, active)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO catalog_product_projection(id, name, price_cents, currency, active, aggregate_version)
+		VALUES ($1, $2, $3, $4, $5, 1)
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			price_cents = EXCLUDED.price_cents,
 			currency = EXCLUDED.currency,
 			active = EXCLUDED.active,
-			updated_at = now()`,
+			updated_at = now(),
+			aggregate_version = EXCLUDED.aggregate_version
+		WHERE catalog_product_projection.aggregate_version <= EXCLUDED.aggregate_version`,
 		product.ID, product.Name, product.PriceCents, string(product.Currency), product.Active)
 	if err != nil {
 		return fmt.Errorf("upsert catalog projection product: %w", err)

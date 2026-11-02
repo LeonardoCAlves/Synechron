@@ -9,12 +9,13 @@ import (
 
 func TestEnvelopeValidate(t *testing.T) {
 	envelope := Envelope{
-		ID:          "event-1",
-		Type:        "catalog.product.created.v1",
-		Version:     1,
-		AggregateID: "product-1",
-		OccurredAt:  time.Now().UTC(),
-		Data:        json.RawMessage(`{"name":"Keyboard"}`),
+		ID:               "event-1",
+		Type:             "catalog.product.created.v1",
+		Version:          1,
+		AggregateID:      "product-1",
+		AggregateVersion: 1,
+		OccurredAt:       time.Now().UTC(),
+		Data:             json.RawMessage(`{"name":"Keyboard"}`),
 	}
 
 	if err := envelope.Validate(); err != nil {
@@ -40,5 +41,8 @@ func TestNewBuildsVersionedEnvelopeWithUTCDate(t *testing.T) {
 	}
 	if envelope.Version != 1 || !envelope.OccurredAt.Equal(occurredAt.UTC()) {
 		t.Fatalf("event metadata was not normalized: %#v", envelope)
+	}
+	if envelope.AggregateVersion != 1 {
+		t.Fatalf("AggregateVersion = %d, want 1 for a new aggregate", envelope.AggregateVersion)
 	}
 }

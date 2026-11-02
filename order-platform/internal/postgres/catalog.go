@@ -96,8 +96,8 @@ func (store *CatalogStore) Create(ctx context.Context, product catalog.Product, 
 	}
 
 	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO catalog_products(id, name, description, price_cents, currency, active, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		INSERT INTO catalog_products(id, name, description, price_cents, currency, active, created_at, aggregate_version)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 1)`,
 		product.ID, product.Name, product.Description, product.PriceCents, string(product.Currency), product.Active, product.CreatedAt); err != nil {
 		return catalog.Product{}, fmt.Errorf("insert product: %w", err)
 	}
@@ -106,6 +106,7 @@ func (store *CatalogStore) Create(ctx context.Context, product catalog.Product, 
 	if err != nil {
 		return catalog.Product{}, fmt.Errorf("build product-created event: %w", err)
 	}
+	event.AggregateVersion = 1
 	if err := insertOutboxEvent(ctx, tx, event); err != nil {
 		return catalog.Product{}, err
 	}
@@ -121,9 +122,11 @@ func insertOutboxEvent(ctx context.Context, tx *sql.Tx, event events.Envelope) e
 		return fmt.Errorf("marshal outbox event: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO outbox_events(id, event_type, aggregate_id, schema_version, occurred_at, payload)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
-		event.ID, event.Type, event.AggregateID, event.Version, event.OccurredAt, string(payload)); err != nil {
+		INSERT INTO outbox_events(
+			id, event_type, aggregate_id, aggregate_version, schema_version, occurred_at, payload
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		event.ID, event.Type, event.AggregateID, event.AggregateVersion,
+		event.Version, event.OccurredAt, string(payload)); err != nil {
 		return fmt.Errorf("insert outbox event: %w", err)
 	}
 	return nil
