@@ -31,6 +31,16 @@ A contract-first architecture decision service that stores Architecture Decision
 - [Testing guide](decision-ledger/docs/testing.md)
 - [ADR 0001: MCP as the interaction boundary](decision-ledger/docs/adr/0001-mcp-as-the-interaction-boundary.md)
 
+### Commerce RAG
+
+An advanced training project for a grounded shopping assistant over product, shipping, and returns knowledge. The initial application core demonstrates retrieval/generation boundaries, scope isolation, citation validation, and abstention; provider and persistence adapters are staged as follow-on milestones.
+
+- [Project README and roadmap](commerce-rag/README.md)
+- [Architecture](commerce-rag/docs/architecture.md)
+- [Security notes](commerce-rag/docs/security.md)
+- [Testing strategy](commerce-rag/docs/testing.md)
+- [ADR 0001: Provider-independent RAG core](commerce-rag/docs/adr/0001-provider-independent-rag-core.md)
+
 ## Working with This Repository
 
 Start with the README in the project you want to explore. Follow that project's prerequisites, setup steps, and security guidance. Keep project-specific code and documentation in its own directory so multiple training projects can coexist here.

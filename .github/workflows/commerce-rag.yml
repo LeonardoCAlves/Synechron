@@ -1,0 +1,26 @@
+name: Commerce RAG
+
+on:
+  push:
+    paths:
+      - "commerce-rag/**"
+      - ".github/workflows/commerce-rag.yml"
+  pull_request:
+    paths:
+      - "commerce-rag/**"
+      - ".github/workflows/commerce-rag.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: commerce-rag
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - run: mvn --batch-mode verify
